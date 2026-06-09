@@ -1,0 +1,7 @@
+numpy
+opencv-contrib-python
+Flask
+celery
+redis
+pytest
+pytest-mock
