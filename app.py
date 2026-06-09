@@ -1,4 +1,3 @@
-import base64
 from io import BytesIO
 
 from celery.result import AsyncResult
@@ -9,7 +8,15 @@ from celery_app import celery
 
 app = Flask(__name__)
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+ALLOWED_EXTENSIONS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "webp",
+    "bmp",
+    "tiff",
+    "tif",
+}
 
 
 def allowed_file(filename: str) -> bool:
@@ -27,6 +34,12 @@ def get_mimetype(extension: str) -> str:
 
     if extension == "webp":
         return "image/webp"
+
+    if extension == "bmp":
+        return "image/bmp"
+
+    if extension in {"tiff", "tif"}:
+        return "image/tiff"
 
     return "application/octet-stream"
 
@@ -51,11 +64,9 @@ def create_upscale_task():
     if not image_bytes:
         return jsonify({"error": "Файл пустой"}), 400
 
-    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-
     task = celery.send_task(
         "tasks.upscale_image_task",
-        args=[image_base64, extension],
+        args=[image_bytes, extension],
     )
 
     return jsonify({
@@ -93,6 +104,7 @@ def get_processed_file(filename: str):
         return jsonify({"error": "Некорректное имя файла"}), 400
 
     task_id, extension = filename.rsplit(".", 1)
+    extension = extension.lower()
 
     task = AsyncResult(task_id, app=celery)
 
@@ -105,8 +117,7 @@ def get_processed_file(filename: str):
 
     result = task.result
 
-    image_base64 = result["image"]
-    image_bytes = base64.b64decode(image_base64.encode("utf-8"))
+    image_bytes = result["image"]
 
     return send_file(
         BytesIO(image_bytes),
